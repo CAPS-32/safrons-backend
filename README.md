@@ -1,96 +1,199 @@
-# Safrons Backend
+# SAFRONS Backend
 
-Backend untuk proyek Capstone Safrons. Menyediakan data **hara tanah**
-(pH, N, P, K) area Bogor & sekitarnya, Jawa Barat, dalam database
-PostgreSQL + PostGIS.
+Backend FastAPI untuk aplikasi SAFRONS. Backend ini menangani API, autentikasi
+JWT, dan akses baca ke database PostgreSQL + PostGIS untuk data unsur hara
+wilayah Bogor.
 
-## Isi repositori
+## Stack
 
+- FastAPI
+- PostgreSQL + PostGIS
+- SQLAlchemy
+- Pydantic Settings
+- JWT bearer auth
+- Pytest
+
+## Pembagian Tanggung Jawab
+
+- Backend menangani API, auth JWT, validasi request, response untuk frontend,
+  dan dokumentasi endpoint.
+- Database/GIS ditangani terpisah oleh role database/GIS. Backend hanya membaca
+  tabel `hara_bogor` dan tidak mengubah struktur data GIS.
+
+## Setup Lokal dengan DOCKER - (disarankan, paling mudah)
+
+Dari folder ini:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -e ".[dev]"
+Copy-Item .env.example .env
 ```
-safrons-backend/
-├── docker-compose.yml        # database PostgreSQL + PostGIS (cara termudah)
-├── .env.example              # konfigurasi opsional untuk Docker
-├── database/                 # migrasi & skrip database — lihat database/README.md
-│   ├── migrations/           # SQL yang dijalankan berurutan
-│   └── scripts/              # skrip setup native (tanpa Docker)
-└── reference/
-    └── data-hara-bogor/      # data GIS sumber (Shapefile) — arsip, read-only
-```
 
-## Persiapan — pilih SATU cara
+Edit `.env` jika username, password, port, atau secret lokal berbeda.
 
-### Cara A — Docker (disarankan, paling mudah, lintas OS)
+Jalankan database:
 
-Cocok untuk Windows/Mac/Linux. Hanya perlu **Docker Desktop** terpasang —
-tidak perlu install PostgreSQL, PostGIS, atau GDAL.
-
-```bash
-git clone <url-repo>
-cd safrons-backend
+```powershell
 docker compose up -d
-```
-
-Saat pertama dijalankan, container otomatis membuat database `safrons`,
-mengaktifkan PostGIS, dan mengisi tabel `hara_bogor` (191 baris). Tunggu
-sampai status `healthy`:
-
-```bash
 docker compose ps
 ```
 
-Database siap di **`localhost:5432`**. Selesai.
+Koneksi database default dari `.env.example`:
 
-Perintah berguna:
-
-| Perintah | Fungsi |
-|----------|--------|
-| `docker compose up -d`      | jalankan database |
-| `docker compose ps`         | cek status |
-| `docker compose logs -f db` | lihat log |
-| `docker compose stop`       | hentikan (data tetap tersimpan) |
-| `docker compose down`       | hapus container (data tetap, di volume) |
-| `docker compose down -v`    | hapus container **+ data** (reset total) |
-
-> Jika port 5432 sudah dipakai di mesinmu: `cp .env.example .env`, lalu
-> ubah `DB_PORT` (mis. `5434`), lalu `docker compose up -d` lagi.
-
-### Cara B — PostgreSQL native (tanpa Docker)
-
-Hanya jika tidak memakai Docker. Perlu PostgreSQL + PostGIS terpasang
-langsung di mesin. Lihat langkah lengkap di
-[database/README.md](database/README.md).
-
-## Koneksi database
-
-Nilai default (Docker, tanpa `.env`):
-
-| Parameter | Nilai     |
-|-----------|-----------|
-| Host      | `localhost` |
-| Port      | `5432` (atau `DB_PORT`) |
-| Database  | `safrons` |
-| User      | `postgres` |
-| Password  | `postgres` |
-
-Connection string:
-
-```
-postgresql://postgres:postgres@localhost:5432/safrons
+```text
+postgresql://safrons:safrons@localhost:5436/safrons
 ```
 
-> Ganti password sebelum dipakai di lingkungan non-lokal.
+Jalankan API:
 
-## Data: tabel `hara_bogor`
+```powershell
+uvicorn app.main:app --reload
+```
 
-191 poligon area, geometri **WGS 84 (SRID 4326)**. Kolom utama: `geom`,
-`name`, `ph_rata2`, `n_rata2`, `p_rata2`, `k_rata2`, `lithology`,
-`soil_great`, `slope__`. Detail & contoh query spasial ada di
-[database/README.md](database/README.md).
+Buka:
 
-Contoh — cari area hara pada satu titik koordinat (longitude, latitude):
+```text
+http://127.0.0.1:8000/health
+http://127.0.0.1:8000/docs
+```
+
+Jalankan test:
+
+```powershell
+pytest
+```
+
+## Endpoint API
+
+### Health
+
+| Method | Path | Fungsi |
+|---|---|---|
+| `GET` | `/health` | Cek status API |
+| `GET` | `/api/v1/health` | Cek status API versi v1 |
+
+### Auth JWT
+
+| Method | Path | Fungsi |
+|---|---|---|
+| `POST` | `/api/v1/auth/register` | Membuat user baru |
+| `POST` | `/api/v1/auth/login` | Login dan mendapatkan JWT access token |
+| `GET` | `/api/v1/auth/me` | Mengambil data user yang sedang login |
+
+Gunakan token login seperti ini:
+
+```text
+Authorization: Bearer <access_token>
+```
+
+Contoh register:
+
+```json
+{
+  "email": "user@example.com",
+  "password": "strong-password",
+  "full_name": "Backend User"
+}
+```
+
+Contoh login:
+
+```json
+{
+  "email": "user@example.com",
+  "password": "strong-password"
+}
+```
+
+### API Unsur Hara Untuk Map
+
+Endpoint ini disiapkan untuk frontend map. Setiap region/poligon bisa
+ditampilkan bersama nilai unsur haranya.
+
+| Method | Path | Fungsi |
+|---|---|---|
+| `GET` | `/api/v1/hara/areas` | Mengambil semua region sebagai GeoJSON `FeatureCollection` |
+| `GET` | `/api/v1/hara/areas/{id}` | Mengambil detail satu region hara |
+| `GET` | `/api/v1/hara/point?lon=106.8&lat=-6.6` | Mencari region hara berdasarkan titik koordinat map |
+
+Setiap feature hara berisi:
+
+- geometri poligon
+- `id`
+- `name`
+- `ph_rata2`
+- `n_rata2`
+- `p_rata2`
+- `k_rata2`
+- `lithology`
+- `soil_great`
+- `slope__`
+
+## Environment Values
+
+| Variable | Fungsi |
+|---|---|
+| `APP_NAME` | Nama tampilan API |
+| `APP_ENV` | Environment runtime, misalnya `local`, `staging`, atau `production` |
+| `DEBUG` | Mengaktifkan mode debug untuk development lokal |
+| `API_V1_PREFIX` | Prefix route API versi v1 |
+| `BACKEND_CORS_ORIGINS` | Daftar origin frontend yang diizinkan |
+| `DATABASE_URL` | URL koneksi SQLAlchemy ke PostgreSQL/PostGIS |
+| `POSTGRES_USER` | User PostgreSQL untuk Docker Compose |
+| `POSTGRES_PASSWORD` | Password PostgreSQL untuk Docker Compose |
+| `POSTGRES_DB` | Nama database PostgreSQL untuk Docker Compose |
+| `DB_PORT` | Port PostgreSQL di host lokal |
+| `JWT_SECRET_KEY` | Secret untuk menandatangani JWT |
+| `JWT_ALGORITHM` | Algoritma JWT, saat ini `HS256` |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | Durasi berlaku access token |
+
+## Struktur Folder
+
+```text
+safrons-backend/
+├── app/                      # Aplikasi FastAPI
+│   ├── api/                  # Router endpoint
+│   ├── core/                 # Config dan security
+│   ├── db/                   # Session dan base SQLAlchemy
+│   ├── models/               # Model database milik backend
+│   └── schemas/              # Schema request/response
+├── tests/                    # Test API
+├── database/                 # Setup PostGIS dan seed data hara
+│   ├── migrations/
+│   └── scripts/
+├── reference/
+│   └── data-hara-bogor/      # File GIS sumber, read-only reference
+├── docker-compose.yml        # Database lokal PostgreSQL + PostGIS
+├── pyproject.toml            # Dependency dan konfigurasi tooling Python
+└── README.md
+```
+
+## Data: `hara_bogor`
+
+Seed database berisi 191 area poligon dengan geometri WGS 84 / SRID 4326.
+Kolom utama:
+
+- `geom`
+- `name`
+- `ph_rata2`
+- `n_rata2`
+- `p_rata2`
+- `k_rata2`
+- `lithology`
+- `soil_great`
+- `slope__`
+
+Contoh query spasial untuk mencari area hara dari satu titik koordinat:
 
 ```sql
 SELECT name, ph_rata2, n_rata2, p_rata2, k_rata2
 FROM hara_bogor
 WHERE ST_Contains(geom, ST_SetSRID(ST_MakePoint(106.8, -6.6), 4326));
 ```
+
+## CARA LAIN - Setup Database Native (tanpa Docker)
+
+Detail setup database native ada di [database/README.md](database/README.md).

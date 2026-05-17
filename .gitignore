@@ -1,8 +1,25 @@
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+.venv/
+venv/
+env/
+
 # Kredensial lokal — jangan di-commit
 .env
 database/.env
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
 
 # Dependensi & build (sesuaikan dengan stack backend nanti)
 node_modules/
+
 dist/
 build/
+*.egg-info/

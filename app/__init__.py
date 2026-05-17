@@ -1,0 +1,2 @@
+"""SAFRONS backend application package."""
+
