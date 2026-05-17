@@ -1,0 +1,8 @@
+# Kredensial lokal — jangan di-commit
+.env
+database/.env
+
+# Dependensi & build (sesuaikan dengan stack backend nanti)
+node_modules/
+dist/
+build/

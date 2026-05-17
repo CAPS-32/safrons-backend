@@ -1,0 +1,35 @@
+# Database PostgreSQL + PostGIS untuk Safrons Backend.
+#
+# Saat pertama kali `docker compose up`, container otomatis:
+#   1. membuat database (POSTGRES_DB)
+#   2. menjalankan semua file di database/migrations/ secara berurutan:
+#        001_enable_postgis.sql   -> aktifkan PostGIS
+#        002_seed_hara_bogor.sql  -> tabel hara_bogor + 191 baris data
+#        003_post_import.sql      -> index spasial & komentar
+#
+# Init scripts HANYA berjalan saat volume data masih kosong. Untuk
+# menjalankan ulang dari nol: `docker compose down -v` lalu `up` lagi.
+
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    container_name: safrons-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-safrons}
+    ports:
+      # Host:Container. Ganti DB_PORT bila port 5432 sudah dipakai.
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - safrons_db_data:/var/lib/postgresql/data
+      - ./database/migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-safrons}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  safrons_db_data:
