@@ -6,6 +6,7 @@
 #        001_enable_postgis.sql   -> aktifkan PostGIS
 #        002_seed_hara_bogor.sql  -> tabel hara_bogor + 191 baris data
 #        003_post_import.sql      -> index spasial & komentar
+#        004_saved_regions.sql    -> tabel users & saved_regions
 #
 # Init scripts HANYA berjalan saat volume data masih kosong. Untuk
 # menjalankan ulang dari nol: `docker compose down -v` lalu `up` lagi.

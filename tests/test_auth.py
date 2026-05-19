@@ -46,6 +46,7 @@ def test_register_login_and_me(client: TestClient) -> None:
     assert register_response.status_code == 201
     assert register_response.json()["email"] == "user@example.com"
     assert "hashed_password" not in register_response.json()
+    assert "is_admin" not in register_response.json()
 
     login_response = client.post(
         "/api/v1/auth/login",
@@ -62,6 +63,7 @@ def test_register_login_and_me(client: TestClient) -> None:
 
     assert me_response.status_code == 200
     assert me_response.json()["email"] == "user@example.com"
+    assert "is_admin" not in me_response.json()
 
 
 def test_register_duplicate_email_returns_conflict(client: TestClient) -> None:

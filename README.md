@@ -2,7 +2,7 @@
 
 Backend FastAPI untuk aplikasi SAFRONS. Backend ini menangani API, autentikasi
 JWT, dan akses baca ke database PostgreSQL + PostGIS untuk data unsur hara
-wilayah Bogor.
+wilayah Bogor. User juga bisa menyimpan region hara dari titik map yang dipilih.
 
 ## Stack
 
@@ -132,6 +132,33 @@ Setiap feature hara berisi:
 - `soil_great`
 - `slope__`
 
+### Saved Regions
+
+Endpoint ini membutuhkan JWT bearer token. Frontend mengirim titik yang dipilih
+user di map, lalu backend mencari region `hara_bogor` yang memuat titik itu dan
+menyimpannya untuk user tersebut.
+
+| Method | Path | Fungsi |
+|---|---|---|
+| `POST` | `/api/v1/saved-regions` | Simpan region dari titik map |
+| `GET` | `/api/v1/saved-regions` | Ambil semua region tersimpan milik user |
+| `GET` | `/api/v1/saved-regions/{id}` | Ambil satu region tersimpan milik user |
+| `PATCH` | `/api/v1/saved-regions/{id}` | Ubah label region tersimpan |
+| `DELETE` | `/api/v1/saved-regions/{id}` | Hapus region tersimpan |
+
+Contoh request:
+
+```json
+{
+  "lon": 106.8,
+  "lat": -6.6,
+  "label": "Lahan contoh"
+}
+```
+
+Response berisi titik yang dipilih, `hara_area_id`, label, waktu simpan, dan
+feature hara yang sudah ter-resolve.
+
 ## Environment Values
 
 | Variable | Fungsi |
@@ -174,6 +201,7 @@ safrons-backend/
 ## Data: `hara_bogor`
 
 Seed database berisi 191 area poligon dengan geometri WGS 84 / SRID 4326.
+Migrasi backend juga membuat tabel `users` dan `saved_regions`.
 Kolom utama:
 
 - `geom`

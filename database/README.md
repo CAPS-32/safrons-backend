@@ -27,7 +27,8 @@ database/
 ├── migrations/               dijalankan BERURUTAN (urut nama file)
 │   ├── 001_enable_postgis.sql    aktifkan ekstensi PostGIS
 │   ├── 002_seed_hara_bogor.sql   CREATE TABLE hara_bogor + 191 INSERT
-│   └── 003_post_import.sql       index spasial GIST + komentar kolom
+│   ├── 003_post_import.sql       index spasial GIST + komentar kolom
+│   └── 004_saved_regions.sql     tabel users + saved_regions
 └── scripts/
     ├── init_db.sh            setup di PostgreSQL native (Cara B)
     └── generate_seed.sh       regenerasi 002_seed_*.sql dari Shapefile
@@ -36,13 +37,15 @@ database/
 `002_seed_hara_bogor.sql` adalah hasil konversi Shapefile (via `ogr2ogr`)
 yang **di-commit ke repo**. Karena datanya sudah berupa SQL biasa, proses
 setup tidak lagi butuh GDAL/`ogr2ogr` — baik lewat Docker maupun native.
+Migrasi `004` menyiapkan tabel backend untuk auth user dan region yang
+disimpan user.
 
 ## Cara setup
 
 ### Cara A — Docker (disarankan)
 
 Tidak menyentuh folder ini secara manual. `docker-compose.yml` di root repo
-otomatis menjalankan ketiga file `migrations/` saat container pertama kali
+otomatis menjalankan semua file `migrations/` saat container pertama kali
 dibuat. Lihat [README utama](../README.md).
 
 ### Cara B — PostgreSQL native (tanpa Docker)
