@@ -3,6 +3,8 @@
 Backend FastAPI untuk aplikasi SAFRONS. Backend ini menangani API, autentikasi
 JWT, dan akses baca ke database PostgreSQL + PostGIS untuk data unsur hara
 wilayah Bogor. User juga bisa menyimpan region hara dari titik map yang dipilih.
+Expert dapat menambahkan advisory, memperbarui data hara, dan membuat area hara
+baru agar bisa dilihat user.
 
 ## Stack
 
@@ -15,10 +17,11 @@ wilayah Bogor. User juga bisa menyimpan region hara dari titik map yang dipilih.
 
 ## Pembagian Tanggung Jawab
 
-- Backend menangani API, auth JWT, validasi request, response untuk frontend,
-  dan dokumentasi endpoint.
-- Database/GIS ditangani terpisah oleh role database/GIS. Backend hanya membaca
-  tabel `hara_bogor` dan tidak mengubah struktur data GIS.
+- Backend menangani API, auth JWT, role access, validasi request, response untuk
+  frontend, dan dokumentasi endpoint.
+- Database/GIS seed awal ditangani terpisah oleh role database/GIS. Backend
+  membaca tabel `hara_bogor`, lalu role expert dapat menambah dan mengubah data
+  hara melalui endpoint khusus.
 
 ## Setup Lokal dengan DOCKER - (disarankan, paling mudah)
 
@@ -99,6 +102,12 @@ Contoh register:
 }
 ```
 
+Register selalu membuat role `user`. Role yang tersedia:
+
+- `user`: membaca data hara dan mengelola saved regions miliknya sendiri
+- `expert`: membuat advisory, update data hara, dan membuat area hara baru
+- `admin`: semua akses expert, plus promosi role user
+
 Contoh login:
 
 ```json
@@ -117,6 +126,7 @@ ditampilkan bersama nilai unsur haranya.
 |---|---|---|
 | `GET` | `/api/v1/hara/areas` | Mengambil semua region sebagai GeoJSON `FeatureCollection` |
 | `GET` | `/api/v1/hara/areas/{id}` | Mengambil detail satu region hara |
+| `GET` | `/api/v1/hara/areas/{id}/advisories` | Mengambil advisory aktif dari expert untuk region hara |
 | `GET` | `/api/v1/hara/point?lon=106.8&lat=-6.6` | Mencari region hara berdasarkan titik koordinat map |
 
 Setiap feature hara berisi:
@@ -158,6 +168,58 @@ Contoh request:
 
 Response berisi titik yang dipilih, `hara_area_id`, label, waktu simpan, dan
 feature hara yang sudah ter-resolve.
+
+### Admin
+
+Endpoint ini membutuhkan JWT user dengan role `admin`.
+
+| Method | Path | Fungsi |
+|---|---|---|
+| `PATCH` | `/api/v1/admin/users/{user_id}/role` | Mengubah role user menjadi `user`, `expert`, atau `admin` |
+
+Contoh request:
+
+```json
+{
+  "role": "expert"
+}
+```
+
+Admin pertama dibuat atau dipromosikan manual lewat database/seed.
+
+### Expert
+
+Endpoint ini membutuhkan JWT user dengan role `expert` atau `admin`.
+
+| Method | Path | Fungsi |
+|---|---|---|
+| `POST` | `/api/v1/expert/hara/areas/{area_id}/advisories` | Membuat advisory publik untuk region hara |
+| `PATCH` | `/api/v1/expert/advisories/{advisory_id}` | Mengubah advisory |
+| `PATCH` | `/api/v1/expert/hara/areas/{area_id}` | Mengubah sebagian field data hara |
+| `POST` | `/api/v1/expert/hara/areas` | Membuat area hara baru dengan GeoJSON Polygon/MultiPolygon |
+
+Contoh update hara:
+
+```json
+{
+  "ph_rata2": 6.2,
+  "soil_great": "Updated soil"
+}
+```
+
+Contoh advisory:
+
+```json
+{
+  "title": "Perbaikan pH tanah",
+  "content": "Aplikasikan dolomit berdasarkan hasil pengukuran lapangan.",
+  "category": "soil",
+  "is_active": true
+}
+```
+
+Setiap perubahan expert ke area hara dicatat di tabel audit
+`hara_area_changes`.
 
 ## Environment Values
 
@@ -202,6 +264,8 @@ safrons-backend/
 
 Seed database berisi 191 area poligon dengan geometri WGS 84 / SRID 4326.
 Migrasi backend juga membuat tabel `users` dan `saved_regions`.
+Migrasi expert menambahkan `role`, `hara_advisories`, dan
+`hara_area_changes`.
 Kolom utama:
 
 - `geom`
