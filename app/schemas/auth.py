@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -31,10 +32,15 @@ class UserRead(BaseModel):
     id: int
     email: str
     full_name: str | None
+    role: Literal["user", "expert", "admin"]
     is_active: bool
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class UserRoleUpdate(BaseModel):
+    role: Literal["user", "expert", "admin"]
 
 
 class Token(BaseModel):

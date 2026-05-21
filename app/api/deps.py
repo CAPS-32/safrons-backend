@@ -26,6 +26,18 @@ def get_current_user(
     return user
 
 
+def require_expert(current_user: Annotated[User, Depends(get_current_user)]) -> User:
+    if current_user.role not in {"expert", "admin"}:
+        raise_forbidden("Expert access required")
+    return current_user
+
+
+def require_admin(current_user: Annotated[User, Depends(get_current_user)]) -> User:
+    if current_user.role != "admin":
+        raise_forbidden("Admin access required")
+    return current_user
+
+
 def raise_invalid_user() -> None:
     from fastapi import HTTPException, status
 
@@ -34,3 +46,9 @@ def raise_invalid_user() -> None:
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+
+
+def raise_forbidden(detail: str) -> None:
+    from fastapi import HTTPException, status
+
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=detail)
