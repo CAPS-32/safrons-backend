@@ -18,3 +18,4 @@ class HaraArea(Base):
     lithology: Mapped[str | None] = mapped_column(String(128), nullable=True)
     soil_great: Mapped[str | None] = mapped_column(String(64), nullable=True)
     slope__: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    texture_of: Mapped[str | None] = mapped_column(String(255), nullable=True)

@@ -174,9 +174,8 @@ def hara_area_to_feature(area: HaraArea) -> HaraFeature:
         "n_rata2": area.n_rata2,
         "p_rata2": area.p_rata2,
         "k_rata2": area.k_rata2,
-        "lithology": area.lithology,
-        "soil_great": area.soil_great,
         "slope__": area.slope__,
+        "texture_of": area.texture_of,
         "geometry": None,
     }
     return row_to_feature(row)
