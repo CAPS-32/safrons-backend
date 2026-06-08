@@ -18,9 +18,9 @@
 -- =====================================================================
 -- 1. Tabel kriteria bucket per tanaman per parameter
 -- =====================================================================
--- Tiap parameter punya 3 rentang [min, max) untuk S1, S2, S3. Nilai di luar
+-- Tiap parameter punya 3 rentang [min, max] untuk S1, S2, S3. Nilai di luar
 -- ketiga rentang => N. Batas atas/bawah memakai NULL untuk "tak terhingga".
--- Pencocokan: value >= min (atau min NULL) AND value < max (atau max NULL).
+-- Pencocokan: value >= min (atau min NULL) AND value <= max (atau max NULL).
 
 CREATE TABLE IF NOT EXISTS crop_suitability_criteria (
     crop      VARCHAR(32)  NOT NULL,   -- 'jagung' | 'kacang_tanah' | 'kakao'
@@ -119,13 +119,13 @@ graded AS (
         CASE
             WHEN cp.value IS NOT NULL
                  AND (cp.s1_min IS NULL OR cp.value >= cp.s1_min)
-                 AND (cp.s1_max IS NULL OR cp.value <  cp.s1_max) THEN 1
+                 AND (cp.s1_max IS NULL OR cp.value <= cp.s1_max) THEN 1
             WHEN cp.value IS NOT NULL
                  AND (cp.s2_min IS NULL OR cp.value >= cp.s2_min)
-                 AND (cp.s2_max IS NULL OR cp.value <  cp.s2_max) THEN 2
+                 AND (cp.s2_max IS NULL OR cp.value <= cp.s2_max) THEN 2
             WHEN cp.value IS NOT NULL
                  AND (cp.s3_min IS NULL OR cp.value >= cp.s3_min)
-                 AND (cp.s3_max IS NULL OR cp.value <  cp.s3_max) THEN 3
+                 AND (cp.s3_max IS NULL OR cp.value <= cp.s3_max) THEN 3
             ELSE 4   -- di luar rentang atau no-data => N
         END AS rank
     FROM crop_param cp
