@@ -147,14 +147,17 @@ SELECT
     a.crop,
     -- kelas akhir = kelas terburuk antar parameter (limiting factor / bucket)
     (ARRAY['S1','S2','S3','N'])[a.worst_rank] AS class,
-    -- parameter pembatas: yang rank-nya = rank terburuk
-    (
-        SELECT ARRAY_AGG(g2.parameter ORDER BY g2.parameter)
-        FROM graded g2
-        WHERE g2.hara_area_id = a.hara_area_id
-          AND g2.crop = a.crop
-          AND g2.rank = a.worst_rank
-    ) AS limiting_factors,
+    -- parameter pembatas: yang rank-nya = rank terburuk (kosong jika kelas S1)
+    CASE
+        WHEN a.worst_rank = 1 THEN ARRAY[]::VARCHAR[]
+        ELSE (
+            SELECT ARRAY_AGG(g2.parameter ORDER BY g2.parameter)
+            FROM graded g2
+            WHERE g2.hara_area_id = a.hara_area_id
+              AND g2.crop = a.crop
+              AND g2.rank = a.worst_rank
+        )
+    END AS limiting_factors,
     -- kelas per-parameter untuk transparansi
     (ARRAY['S1','S2','S3','N'])[a.ph_rank] AS ph_class,
     (ARRAY['S1','S2','S3','N'])[a.n_rank]  AS n_class,

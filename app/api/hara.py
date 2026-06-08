@@ -64,7 +64,7 @@ def get_hara_area_diagnosis(
     area_id: int,
     db: Annotated[Session, Depends(get_db)],
 ) -> HaraDiagnosisRead:
-    return build_hara_diagnosis(require_hara_feature(db, area_id))
+    return build_hara_diagnosis(require_hara_feature(db, area_id), db=db)
 @router.get("/areas/{area_id}/advisories", response_model=list[AdvisoryRead])
 def list_hara_area_advisories(
     area_id: int,
@@ -116,7 +116,7 @@ def get_hara_area_diagnosis_by_point(
     area = find_hara_feature_by_point(db, lon, lat)
     if area is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No hara area found")
-    return build_hara_diagnosis(area)
+    return build_hara_diagnosis(area, db=db)
 def ensure_hara_advisory_tables(db: Session) -> None:
     Base.metadata.create_all(
         bind=db.get_bind(),

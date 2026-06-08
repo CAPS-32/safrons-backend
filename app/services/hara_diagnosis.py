@@ -1,6 +1,15 @@
 from collections.abc import Sequence
+from typing import Any
 
-from app.schemas.diagnosis import DiagnosisFactor, DiagnosisRecommendation, HaraDiagnosisRead
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+
+from app.schemas.diagnosis import (
+    CropSuitability,
+    DiagnosisFactor,
+    DiagnosisRecommendation,
+    HaraDiagnosisRead,
+)
 from app.schemas.hara import HaraFeature
 
 RULE_SET_VERSION = "hara-general-v1"
@@ -48,7 +57,7 @@ STATUS_LABELS = {
 }
 
 
-def build_hara_diagnosis(area: HaraFeature) -> HaraDiagnosisRead:
+def build_hara_diagnosis(area: HaraFeature, db: Session | None = None) -> HaraDiagnosisRead:
     if has_insufficient_data(area):
         return HaraDiagnosisRead(
             rule_set_version=RULE_SET_VERSION,
@@ -57,6 +66,7 @@ def build_hara_diagnosis(area: HaraFeature) -> HaraDiagnosisRead:
             area=area,
             factors=[],
             recommendations=[],
+            crop_suitabilities=[],
         )
 
     factors = [
@@ -67,6 +77,7 @@ def build_hara_diagnosis(area: HaraFeature) -> HaraDiagnosisRead:
         classify_slope(area.properties.slope__),
     ]
     recommendations = build_recommendations(factors)
+    crop_suitabilities = get_crop_suitability(area, db=db)
 
     return HaraDiagnosisRead(
         rule_set_version=RULE_SET_VERSION,
@@ -75,6 +86,7 @@ def build_hara_diagnosis(area: HaraFeature) -> HaraDiagnosisRead:
         area=area,
         factors=factors,
         recommendations=recommendations,
+        crop_suitabilities=crop_suitabilities,
     )
 
 
@@ -323,4 +335,118 @@ def build_summary(factors: list[DiagnosisFactor]) -> str:
     if attention:
         return f"Management attention is recommended for {', '.join(attention)}."
     return "No high-priority soil constraints were detected by the current rule set."
+
+
+CROP_CRITERIA = {
+    "jagung": {
+        "ph": (5.5, 7.0, 5.0, 5.5, 4.5, 5.0),
+        "n": (5.0, None, 3.0, 5.0, 2.0, 3.0),
+        "p": (16.0, None, 8.0, 16.0, 6.0, 8.0),
+        "k": (300.0, None, 150.0, 300.0, 80.0, 150.0),
+    },
+    "kacang_tanah": {
+        "ph": (5.5, 7.0, 5.0, 5.5, 4.5, 5.0),
+        "n": (4.0, None, 2.5, 4.0, 1.5, 2.5),
+        "p": (16.0, None, 8.0, 16.0, 6.0, 8.0),
+        "k": (250.0, None, 120.0, 250.0, 70.0, 120.0),
+    },
+    "kakao": {
+        "ph": (6.0, 7.0, 5.0, 6.0, 4.0, 5.0),
+        "n": (3.0, None, 2.0, 3.0, 1.0, 2.0),
+        "p": (12.0, None, 7.0, 12.0, 5.0, 7.0),
+        "k": (200.0, None, 100.0, 200.0, 60.0, 100.0),
+    },
+}
+
+
+def classify_crop_param(
+    value: float | None,
+    criteria: tuple[float | None, float | None, float | None, float | None, float | None, float | None],
+) -> int:
+    if value is None or value <= -9000:
+        return 4
+
+    s1_min, s1_max, s2_min, s2_max, s3_min, s3_max = criteria
+
+    if (s1_min is None or value >= s1_min) and (s1_max is None or value <= s1_max):
+        return 1
+    if (s2_min is None or value >= s2_min) and (s2_max is None or value <= s2_max):
+        return 2
+    if (s3_min is None or value >= s3_min) and (s3_max is None or value <= s3_max):
+        return 3
+
+    return 4
+
+
+def calculate_python_suitability(area: HaraFeature) -> list[CropSuitability]:
+    results = []
+    props = area.properties
+    vals = {
+        "ph": props.ph_rata2,
+        "n": props.n_rata2,
+        "p": props.p_rata2,
+        "k": props.k_rata2,
+    }
+
+    classes_map = {1: "S1", 2: "S2", 3: "S3", 4: "N"}
+
+    for crop, criteria_set in CROP_CRITERIA.items():
+        ranks = {}
+        for param, criteria in criteria_set.items():
+            ranks[param] = classify_crop_param(vals[param], criteria)
+
+        worst_rank = max(ranks.values())
+        suitability_class = classes_map[worst_rank]
+        limiting_factors = (
+            []
+            if worst_rank == 1
+            else sorted([param for param, rank in ranks.items() if rank == worst_rank])
+        )
+
+        results.append(
+            CropSuitability(
+                crop=crop,
+                suitability_class=suitability_class,
+                limiting_factors=limiting_factors,
+                ph_class=classes_map[ranks["ph"]],
+                n_class=classes_map[ranks["n"]],
+                p_class=classes_map[ranks["p"]],
+                k_class=classes_map[ranks["k"]],
+            )
+        )
+
+    return results
+
+
+def get_crop_suitability(area: HaraFeature, db: Session | None = None) -> list[CropSuitability]:
+    if db is not None:
+        try:
+            if db.get_bind().dialect.name == "postgresql":
+                rows = db.execute(
+                    text(
+                        """
+                        SELECT crop, class, limiting_factors, ph_class, n_class, p_class, k_class
+                        FROM hara_crop_suitability
+                        WHERE hara_area_id = :area_id
+                        ORDER BY crop
+                        """
+                    ),
+                    {"area_id": area.properties.id},
+                ).mappings().all()
+                return [
+                    CropSuitability(
+                        crop=row["crop"],
+                        suitability_class=row["class"],
+                        limiting_factors=row["limiting_factors"],
+                        ph_class=row["ph_class"],
+                        n_class=row["n_class"],
+                        p_class=row["p_class"],
+                        k_class=row["k_class"],
+                    )
+                    for row in rows
+                ]
+        except Exception:
+            pass
+
+    return calculate_python_suitability(area)
 

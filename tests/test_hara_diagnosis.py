@@ -61,3 +61,32 @@ def test_nutrients_use_dataset_relative_bands() -> None:
     assert classify_nutrient("n_rata2", 5.0).status == "high"
     assert classify_nutrient("n_rata2", 6.0).status == "very_high"
 
+
+def test_crop_suitability_calculation_maize_peanut_cocoa() -> None:
+    diag = build_hara_diagnosis(feature(ph=6.5, n=6.0, p=20.0, k=400.0))
+    assert diag.status == "ready"
+    assert len(diag.crop_suitabilities) == 3
+
+    # Check jagung
+    jagung = next(s for s in diag.crop_suitabilities if s.crop == "jagung")
+    assert jagung.suitability_class == "S1"
+    assert jagung.ph_class == "S1"
+    assert jagung.n_class == "S1"
+    assert jagung.p_class == "S1"
+    assert jagung.k_class == "S1"
+    assert jagung.limiting_factors == []
+
+    # Test area with pH 7.0 to verify inclusive <= boundary (bug fix validation)
+    diag_boundary = build_hara_diagnosis(feature(ph=7.0, n=6.0, p=20.0, k=400.0))
+    jagung_boundary = next(s for s in diag_boundary.crop_suitabilities if s.crop == "jagung")
+    assert jagung_boundary.ph_class == "S1"
+    assert jagung_boundary.suitability_class == "S1"
+
+    # Test area with limiting factors (e.g. low pH of 4.2)
+    diag_limiting = build_hara_diagnosis(feature(ph=4.2, n=1.0, p=1.0, k=10.0))
+    kakao_limiting = next(s for s in diag_limiting.crop_suitabilities if s.crop == "kakao")
+    assert kakao_limiting.suitability_class == "N"
+    assert kakao_limiting.ph_class == "S3"
+    assert kakao_limiting.n_class == "S3"
+
+

@@ -117,6 +117,8 @@ def test_hara_area_diagnosis_returns_rule_output(client: TestClient) -> None:
     assert body["area"]["properties"]["id"] == 1
     assert body["factors"][0]["key"] == "ph"
     assert body["recommendations"][0]["priority"] == 1
+    assert "crop_suitabilities" in body
+    assert len(body["crop_suitabilities"]) == 3
 
 
 def test_hara_point_diagnosis_uses_spatial_lookup(client: TestClient, fake_db: FakeDb) -> None:
