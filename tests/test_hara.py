@@ -21,9 +21,8 @@ ROW = {
     "n_rata2": Decimal("4.565255"),
     "p_rata2": Decimal("8.626031"),
     "k_rata2": Decimal("126.83385"),
-    "lithology": "Fine grained tephra shale",
-    "soil_great": "Dystropepts",
     "slope__": "41-60",
+    "texture_of": "Fine grained tephra shale",
     "geometry": GEOMETRY,
 }
 

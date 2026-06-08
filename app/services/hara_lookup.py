@@ -16,9 +16,8 @@ HARA_COLUMNS = """
     n_rata2,
     p_rata2,
     k_rata2,
-    lithology,
-    soil_great,
     slope__,
+    texture_of,
     ST_AsGeoJSON(geom)::json AS geometry
 """
 
@@ -35,9 +34,8 @@ def row_to_feature(row: Any) -> HaraFeature:
         "n_rata2": numeric_to_float(row["n_rata2"]),
         "p_rata2": numeric_to_float(row["p_rata2"]),
         "k_rata2": numeric_to_float(row["k_rata2"]),
-        "lithology": row["lithology"],
-        "soil_great": row["soil_great"],
         "slope__": row["slope__"],
+        "texture_of": row["texture_of"],
     }
     return HaraFeature(geometry=geometry, properties=properties)
 
@@ -58,9 +56,8 @@ def hara_area_to_feature(area: HaraArea) -> HaraFeature:
         "n_rata2": area.n_rata2,
         "p_rata2": area.p_rata2,
         "k_rata2": area.k_rata2,
-        "lithology": area.lithology,
-        "soil_great": area.soil_great,
         "slope__": area.slope__,
+        "texture_of": area.texture_of,
         "geometry": None,
     }
     return row_to_feature(row)

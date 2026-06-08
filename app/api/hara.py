@@ -25,6 +25,7 @@ from app.services.hara_lookup import (
 router = APIRouter(prefix="/api/v1/hara", tags=["hara"])
 
 
+
 @router.get("/areas", response_model=HaraFeatureCollection)
 def list_hara_areas(db: Annotated[Session, Depends(get_db)]) -> HaraFeatureCollection:
     rows = db.execute(
@@ -64,8 +65,6 @@ def get_hara_area_diagnosis(
     db: Annotated[Session, Depends(get_db)],
 ) -> HaraDiagnosisRead:
     return build_hara_diagnosis(require_hara_feature(db, area_id))
-
-
 @router.get("/areas/{area_id}/advisories", response_model=list[AdvisoryRead])
 def list_hara_area_advisories(
     area_id: int,
@@ -118,8 +117,6 @@ def get_hara_area_diagnosis_by_point(
     if area is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No hara area found")
     return build_hara_diagnosis(area)
-
-
 def ensure_hara_advisory_tables(db: Session) -> None:
     Base.metadata.create_all(
         bind=db.get_bind(),

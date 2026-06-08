@@ -156,9 +156,8 @@ def create_hara_area(
                     n_rata2,
                     p_rata2,
                     k_rata2,
-                    lithology,
-                    soil_great,
-                    slope__
+                    slope__,
+                    texture_of
                 )
                 SELECT
                     ST_SetSRID(ST_Multi(ST_GeomFromGeoJSON(:geometry)), 4326),
@@ -167,9 +166,8 @@ def create_hara_area(
                     :n_rata2,
                     :p_rata2,
                     :k_rata2,
-                    :lithology,
-                    :soil_great,
-                    :slope__
+                    :slope__,
+                    :texture_of
                 WHERE ST_IsValid(ST_SetSRID(ST_Multi(ST_GeomFromGeoJSON(:geometry)), 4326))
                 RETURNING id
                 """

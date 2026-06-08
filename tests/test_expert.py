@@ -34,9 +34,8 @@ def client_with_db() -> Generator[tuple[TestClient, Callable[[], Session]], None
                 n_rata2=Decimal("4.565255"),
                 p_rata2=Decimal("8.626031"),
                 k_rata2=Decimal("126.83385"),
-                lithology="Fine grained tephra shale",
-                soil_great="Dystropepts",
                 slope__="41-60",
+                texture_of="Fine grained tephra shale",
             )
         )
         db.commit()
@@ -159,13 +158,13 @@ def test_expert_can_patch_hara_area_and_audit_change(
 
     response = client.patch(
         "/api/v1/expert/hara/areas/1",
-        json={"ph_rata2": 6.2, "soil_great": "Updated soil"},
+        json={"ph_rata2": 6.2, "texture_of": "Updated soil"},
         headers=expert_headers,
     )
 
     assert response.status_code == 200
     assert response.json()["properties"]["ph_rata2"] == 6.2
-    assert response.json()["properties"]["soil_great"] == "Updated soil"
+    assert response.json()["properties"]["texture_of"] == "Updated soil"
     with session_local() as db:
         change = db.scalar(select(HaraAreaChange).where(HaraAreaChange.hara_area_id == 1))
         assert change is not None
@@ -211,8 +210,7 @@ def test_expert_can_create_hara_area(
                 "n_rata2": 3.2,
                 "p_rata2": 10.5,
                 "k_rata2": 150.0,
-                "lithology": "Alluvium",
-                "soil_great": "Tropaquepts",
+                "texture_of": "Alluvium",
                 "slope__": "<2",
             },
         },

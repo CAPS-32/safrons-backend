@@ -20,9 +20,8 @@ def feature(
             n_rata2=n,
             p_rata2=p,
             k_rata2=k,
-            lithology="Fine grained tephra shale",
-            soil_great="Dystropepts",
             slope__=slope,
+            texture_of="Fine grained tephra shale",
         ),
     )
 

@@ -118,6 +118,7 @@ def get_owned_saved_region(db: Session, user_id: int, saved_region_id: int) -> S
     return saved_region
 
 
+
 def saved_region_to_read(saved_region: SavedRegion, area: HaraFeature) -> SavedRegionRead:
     return SavedRegionRead(
         id=saved_region.id,

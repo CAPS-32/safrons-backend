@@ -140,9 +140,8 @@ Setiap feature hara berisi:
 - `n_rata2`
 - `p_rata2`
 - `k_rata2`
-- `lithology`
-- `soil_great`
 - `slope__`
+- `texture_of`
 
 ### Sistem Pakar Hara
 
@@ -386,9 +385,8 @@ Kolom utama:
 - `n_rata2`
 - `p_rata2`
 - `k_rata2`
-- `lithology`
-- `soil_great`
 - `slope__`
+- `texture_of`
 
 Contoh query spasial untuk mencari area hara dari satu titik koordinat:
 

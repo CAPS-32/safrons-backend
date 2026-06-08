@@ -10,9 +10,8 @@ class HaraProperties(BaseModel):
     n_rata2: float | None
     p_rata2: float | None
     k_rata2: float | None
-    lithology: str | None
-    soil_great: str | None
     slope__: str | None = Field(alias="slope__")
+    texture_of: str | None = Field(default=None)
 
     model_config = {"populate_by_name": True}
 
@@ -34,11 +33,10 @@ class HaraPropertiesWrite(BaseModel):
     n_rata2: float | None = Field(default=None, ge=0)
     p_rata2: float | None = Field(default=None, ge=0)
     k_rata2: float | None = Field(default=None, ge=0)
-    lithology: str | None = Field(default=None, max_length=128)
-    soil_great: str | None = Field(default=None, max_length=64)
     slope__: str | None = Field(default=None, max_length=16)
+    texture_of: str | None = Field(default=None, max_length=255)
 
-    @field_validator("name", "lithology", "soil_great", "slope__")
+    @field_validator("name", "slope__", "texture_of")
     @classmethod
     def normalize_optional_text(cls, value: str | None) -> str | None:
         if value is None:
