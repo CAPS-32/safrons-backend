@@ -7,7 +7,6 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_expert
-from app.api.saved_regions import get_hara_feature_by_id, hara_area_to_feature, require_hara_feature
 from app.db.base import Base
 from app.db.session import get_db
 from app.models.hara import HaraArea
@@ -16,6 +15,7 @@ from app.models.hara_area_change import HaraAreaChange
 from app.models.user import User
 from app.schemas.advisory import AdvisoryCreate, AdvisoryRead, AdvisoryUpdate
 from app.schemas.hara import HaraAreaCreate, HaraAreaUpdate, HaraFeature
+from app.services.hara_lookup import get_hara_feature_by_id, hara_area_to_feature, require_hara_feature
 
 router = APIRouter(prefix="/api/v1/expert", tags=["expert"])
 

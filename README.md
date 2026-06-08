@@ -126,8 +126,10 @@ ditampilkan bersama nilai unsur haranya.
 |---|---|---|
 | `GET` | `/api/v1/hara/areas` | Mengambil semua region sebagai GeoJSON `FeatureCollection` |
 | `GET` | `/api/v1/hara/areas/{id}` | Mengambil detail satu region hara |
+| `GET` | `/api/v1/hara/areas/{id}/diagnosis` | Mengambil diagnosis sistem pakar otomatis untuk region hara |
 | `GET` | `/api/v1/hara/areas/{id}/advisories` | Mengambil advisory aktif dari expert untuk region hara |
 | `GET` | `/api/v1/hara/point?lon=106.8&lat=-6.6` | Mencari region hara berdasarkan titik koordinat map |
+| `GET` | `/api/v1/hara/point/diagnosis?lon=106.8&lat=-6.6` | Mencari region dari titik map lalu mengembalikan diagnosis sistem pakar |
 
 Setiap feature hara berisi:
 
@@ -141,6 +143,116 @@ Setiap feature hara berisi:
 - `lithology`
 - `soil_great`
 - `slope__`
+
+### Sistem Pakar Hara
+
+Endpoint diagnosis bersifat publik dan menghasilkan rekomendasi umum berbasis
+data `hara_bogor` yang sudah ada. Sistem pakar memakai rule deterministik:
+
+- pH diklasifikasikan dari kelas reaksi tanah umum.
+- N, P, dan K diklasifikasikan relatif terhadap distribusi dataset saat ini,
+  karena data tidak menyimpan satuan atau metode ekstraksi laboratorium.
+- `slope__` dipakai untuk memberi peringatan risiko erosi/nutrient loss.
+- Baris `Water`, `No Data`, atau nilai sentinel `-9999` menghasilkan status
+  `insufficient_data`.
+
+Perhitungan dilakukan dalam urutan berikut:
+
+1. Backend mengambil `HaraFeature` dari `hara_bogor` berdasarkan `area_id` atau
+   titik `lon`/`lat`.
+2. Jika `name` adalah `Water`/`No Data`, atau salah satu nilai `ph_rata2`,
+   `n_rata2`, `p_rata2`, `k_rata2` bernilai `NULL` atau `-9999`, response
+   langsung berstatus `insufficient_data`.
+3. Jika data valid, setiap faktor dihitung menjadi `status`, `status_label`,
+   `severity`, dan `message`.
+4. Recommendation dibuat dari faktor yang perlu perhatian. Prioritasnya:
+   terrain/slope, pH, lalu N, P, K.
+
+Klasifikasi pH:
+
+| Nilai `ph_rata2` | Status | Severity |
+|---|---|---|
+| `< 4.5` | `very_acid` | `critical` |
+| `4.5 - < 5.6` | `acid` | `attention` |
+| `5.6 - < 6.6` | `slightly_acid` | `watch` |
+| `6.6 - < 7.6` | `neutral` | `info` |
+| `7.6 - < 8.6` | `slightly_alkaline` | `watch` |
+| `>= 8.6` | `alkaline` | `attention` |
+
+Klasifikasi N/P/K memakai batas persentil dataset `hara_bogor` saat ini, bukan
+ambang pupuk umum, karena kolom data tidak menyimpan satuan atau metode uji lab.
+
+| Faktor | Very low | Low | Medium | High | Very high |
+|---|---:|---:|---:|---:|---:|
+| `n_rata2` | `<= 1.989691` | `<= 2.450581` | `<= 4.158587` | `<= 5.5412572` | `> 5.5412572` |
+| `p_rata2` | `<= 6.672457` | `<= 7.790811` | `<= 8.022388` | `<= 8.970512` | `> 8.970512` |
+| `k_rata2` | `<= 146.97696` | `<= 197.49262` | `<= 331.24494` | `<= 447.9228` | `> 447.9228` |
+
+Severity N/P/K:
+
+| Status | Severity |
+|---|---|
+| `very_low` | `critical` |
+| `low` | `attention` |
+| `medium` | `info` |
+| `high`, `very_high` | `watch` |
+
+Klasifikasi slope:
+
+| Nilai `slope__` | Status | Severity |
+|---|---|---|
+| `<2` | `flat` | `info` |
+| `0-8`, `2-8` | `gentle` | `info` |
+| `9-15` | `moderate` | `watch` |
+| `16-25`, `26-40` | `steep` | `attention` |
+| `41-60`, `>60` | `very_steep` | `critical` |
+| kosong/tidak dikenal | `unknown` | `watch` |
+
+Sumber dan catatan verifikasi:
+
+- pH: memakai tabel `pH H2O` pada *Petunjuk Teknis Analisis Kimia Tanah,
+  Tanaman, Air, dan Pupuk*. Sumber ini terverifikasi sebagai item resmi
+  Repositori Kementerian Pertanian, handle
+  <https://repository.pertanian.go.id/handle/123456789/14959>, terbit 2005,
+  penulis Sulaeman, Suparto, dan Eviati, penerbit Balai Penelitian Tanah.
+  PDF-nya tersedia di:
+  <https://repository.pertanian.go.id/bitstream/handle/123456789/14959/juknis_kimia.pdf?sequence=1>.
+  Pada Lampiran 3 "Kriteria penilaian hasil analisis tanah", dokumen tersebut
+  memuat kelas pH H2O: `<4,5`, `4,5-5,5`, `5,5-6,5`, `6,6-7,5`,
+  `7,6-8,5`, dan `>8,5`.
+- N/P/K: ambang pada sistem ini bukan ambang pupuk dari literatur. Ambang
+  dihitung dari distribusi data lokal `hara_bogor` dengan persentil 20, 40, 60,
+  dan 80 karena dataset tidak menyimpan satuan atau metode ekstraksi lab untuk
+  `n_rata2`, `p_rata2`, dan `k_rata2`. Fungsi SQL yang dipakai untuk menghitung
+  persentil adalah `percentile_cont`, yang didokumentasikan PostgreSQL:
+  <https://www.postgresql.org/docs/current/functions-aggregate.html>.
+- Slope: kelas `slope__` mengikuti nilai kelas yang sudah ada di dataset
+  `hara_bogor`, bukan angka dari FAO. Pemakaian slope sebagai indikator risiko
+  erosi didukung oleh panduan FAO untuk pemetaan erosi, yang memakai kelas
+  kemiringan dalam matriks erodibilitas:
+  <https://www.fao.org/4/x5302e/x5302e07.htm>.
+
+Contoh response ringkas:
+
+```json
+{
+  "rule_set_version": "hara-general-v1",
+  "status": "ready",
+  "summary": "High-priority constraints found for Slope.",
+  "factors": [
+    {
+      "key": "ph",
+      "label": "pH",
+      "value": 5.016667,
+      "status": "acid",
+      "status_label": "Acid",
+      "severity": "attention",
+      "message": "Soil reaction is acidic and may limit nutrient availability."
+    }
+  ],
+  "recommendations": []
+}
+```
 
 ### Saved Regions
 

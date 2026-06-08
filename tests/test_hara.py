@@ -53,6 +53,15 @@ class FakeDb:
         self.params.append(params)
         return FakeResult(self.rows)
 
+    def get_bind(self) -> Any:
+        class FakeDialect:
+            name = "postgresql"
+
+        class FakeBind:
+            dialect = FakeDialect()
+
+        return FakeBind()
+
 
 @pytest.fixture()
 def fake_db() -> FakeDb:
@@ -97,6 +106,52 @@ def test_hara_point_uses_spatial_lookup(client: TestClient, fake_db: FakeDb) -> 
     assert response.status_code == 200
     assert "ST_Contains" in fake_db.statements[0]
     assert fake_db.params[0] == {"lon": 106.8, "lat": -6.6}
+
+
+def test_hara_area_diagnosis_returns_rule_output(client: TestClient) -> None:
+    response = client.get("/api/v1/hara/areas/1/diagnosis")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "ready"
+    assert body["rule_set_version"] == "hara-general-v1"
+    assert body["area"]["properties"]["id"] == 1
+    assert body["factors"][0]["key"] == "ph"
+    assert body["recommendations"][0]["priority"] == 1
+
+
+def test_hara_point_diagnosis_uses_spatial_lookup(client: TestClient, fake_db: FakeDb) -> None:
+    response = client.get("/api/v1/hara/point/diagnosis?lon=106.8&lat=-6.6")
+
+    assert response.status_code == 200
+    assert "ST_Contains" in fake_db.statements[0]
+    assert fake_db.params[0] == {"lon": 106.8, "lat": -6.6}
+    assert response.json()["status"] == "ready"
+
+
+def test_hara_diagnosis_returns_insufficient_data_for_no_data_row() -> None:
+    no_data_row = {
+        **ROW,
+        "name": "Water",
+        "ph_rata2": Decimal("-9999"),
+        "n_rata2": Decimal("-9999"),
+        "p_rata2": Decimal("-9999"),
+        "k_rata2": Decimal("-9999"),
+        "slope__": "",
+    }
+    fake_db = FakeDb([no_data_row])
+
+    def override_get_db() -> FakeDb:
+        return fake_db
+
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        response = TestClient(app).get("/api/v1/hara/areas/5/diagnosis")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "insufficient_data"
 
 
 def test_missing_hara_area_returns_404() -> None:

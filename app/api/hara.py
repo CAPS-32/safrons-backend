@@ -1,6 +1,4 @@
-import json
-from decimal import Decimal
-from typing import Any, Annotated
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
@@ -13,22 +11,18 @@ from app.models.hara import HaraArea
 from app.models.hara_advisory import HaraAdvisory
 from app.models.user import User
 from app.schemas.advisory import AdvisoryRead
+from app.schemas.diagnosis import HaraDiagnosisRead
 from app.schemas.hara import HaraFeature, HaraFeatureCollection
+from app.services.hara_diagnosis import build_hara_diagnosis
+from app.services.hara_lookup import (
+    HARA_COLUMNS,
+    find_hara_feature_by_point,
+    hara_area_exists,
+    require_hara_feature,
+    row_to_feature,
+)
 
 router = APIRouter(prefix="/api/v1/hara", tags=["hara"])
-
-HARA_COLUMNS = """
-    id,
-    name,
-    ph_rata2,
-    n_rata2,
-    p_rata2,
-    k_rata2,
-    lithology,
-    soil_great,
-    slope__,
-    ST_AsGeoJSON(geom)::json AS geometry
-"""
 
 
 @router.get("/areas", response_model=HaraFeatureCollection)
@@ -62,6 +56,14 @@ def get_hara_area(area_id: int, db: Annotated[Session, Depends(get_db)]) -> Hara
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Hara area not found")
     return row_to_feature(row)
+
+
+@router.get("/areas/{area_id}/diagnosis", response_model=HaraDiagnosisRead)
+def get_hara_area_diagnosis(
+    area_id: int,
+    db: Annotated[Session, Depends(get_db)],
+) -> HaraDiagnosisRead:
+    return build_hara_diagnosis(require_hara_feature(db, area_id))
 
 
 @router.get("/areas/{area_id}/advisories", response_model=list[AdvisoryRead])
@@ -106,39 +108,16 @@ def get_hara_area_by_point(
     return row_to_feature(row)
 
 
-def row_to_feature(row: Any) -> HaraFeature:
-    geometry = row["geometry"]
-    if isinstance(geometry, str):
-        geometry = json.loads(geometry)
-
-    properties = {
-        "id": row["id"],
-        "name": row["name"],
-        "ph_rata2": numeric_to_float(row["ph_rata2"]),
-        "n_rata2": numeric_to_float(row["n_rata2"]),
-        "p_rata2": numeric_to_float(row["p_rata2"]),
-        "k_rata2": numeric_to_float(row["k_rata2"]),
-        "lithology": row["lithology"],
-        "soil_great": row["soil_great"],
-        "slope__": row["slope__"],
-    }
-    return HaraFeature(geometry=geometry, properties=properties)
-
-
-def numeric_to_float(value: Any) -> float | None:
-    if value is None:
-        return None
-    if isinstance(value, Decimal):
-        return float(value)
-    return value
-
-
-def hara_area_exists(db: Session, area_id: int) -> bool:
-    if db.get_bind().dialect.name == "sqlite":
-        return db.get(HaraArea, area_id) is not None
-
-    exists = db.scalar(text("SELECT 1 FROM hara_bogor WHERE id = :area_id"), {"area_id": area_id})
-    return exists is not None
+@router.get("/point/diagnosis", response_model=HaraDiagnosisRead)
+def get_hara_area_diagnosis_by_point(
+    db: Annotated[Session, Depends(get_db)],
+    lon: float = Query(ge=-180, le=180),
+    lat: float = Query(ge=-90, le=90),
+) -> HaraDiagnosisRead:
+    area = find_hara_feature_by_point(db, lon, lat)
+    if area is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No hara area found")
+    return build_hara_diagnosis(area)
 
 
 def ensure_hara_advisory_tables(db: Session) -> None:
