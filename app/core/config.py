@@ -15,12 +15,31 @@ class Settings(BaseSettings):
     )
     database_url: str = "postgresql+psycopg://safrons:safrons@localhost:5432/safrons"
 
+    @field_validator("backend_cors_origins", mode="before")
+    @classmethod
+    def assemble_cors_origins(cls, v: Any) -> list[str]:
+        if isinstance(v, str):
+            cleaned = v.strip().strip("'\"")
+            if cleaned.startswith("[") and cleaned.endswith("]"):
+                try:
+                    import json
+                    parsed = json.loads(cleaned)
+                    if isinstance(parsed, list):
+                        return [str(item).strip() for item in parsed]
+                except Exception:
+                    pass
+            return [item.strip() for item in cleaned.split(",") if item.strip()]
+        elif isinstance(v, list):
+            return [str(item).strip() for item in v]
+        return v
+
     @field_validator("database_url", mode="before")
     @classmethod
     def convert_postgres_schema(cls, v: Any) -> Any:
         if isinstance(v, str) and v.startswith("postgresql://"):
             return v.replace("postgresql://", "postgresql+psycopg://", 1)
         return v
+
 
     jwt_secret_key: str = "change-this-local-development-secret"
     jwt_algorithm: str = "HS256"
