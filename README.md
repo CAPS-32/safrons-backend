@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="public/safrons-logo.png" alt="SAFRONS Logo" height="100">
+  <img src="public\safrons.png" alt="SAFRONS Logo" height="100">
 
   # SAFRONS Backend
 
