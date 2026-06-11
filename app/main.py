@@ -43,6 +43,8 @@ def create_app() -> FastAPI:
         import sys
         if "pytest" in sys.modules:
             return
+        print(f"Loaded CORS origins: {settings.backend_cors_origins}")
+
 
         def run_db_migrations_bg():
             from app.db.session import SessionLocal
