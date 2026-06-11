@@ -117,3 +117,46 @@ def hara_area_exists(db: Session, area_id: int) -> bool:
     exists = db.scalar(text("SELECT 1 FROM hara_bogor WHERE id = :area_id"), {"area_id": area_id})
     return exists is not None
 
+
+def get_hara_features_by_ids(
+    db: Session, area_ids: list[int], include_geometry: bool = True
+) -> dict[int, HaraFeature]:
+    if not area_ids:
+        return {}
+
+    if db.get_bind().dialect.name == "sqlite":
+        areas = db.scalars(select(HaraArea).where(HaraArea.id.in_(area_ids))).all()
+        features = {}
+        for area in areas:
+            feat = hara_area_to_feature(area)
+            if not include_geometry:
+                feat.geometry = None
+            features[area.id] = feat
+        return features
+
+    cols = HARA_COLUMNS if include_geometry else """
+        id,
+        name,
+        ph_rata2,
+        n_rata2,
+        p_rata2,
+        k_rata2,
+        slope__,
+        texture_of,
+        NULL AS geometry
+    """
+
+    rows = db.execute(
+        text(
+            f"""
+            SELECT {cols}
+            FROM hara_bogor
+            WHERE id = ANY(:area_ids)
+            """
+        ),
+        {"area_ids": area_ids},
+    ).mappings().all()
+
+    return {row["id"]: row_to_feature(row) for row in rows}
+
+

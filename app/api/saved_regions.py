@@ -13,7 +13,11 @@ from app.models.user import User
 from app.schemas.hara import HaraFeature
 from app.schemas.saved_region import SavedRegionCreate, SavedRegionRead, SavedRegionUpdate
 from app.schemas.saved_region import selected_point as selected_point_schema
-from app.services.hara_lookup import find_hara_feature_by_point, require_hara_feature
+from app.services.hara_lookup import (
+    find_hara_feature_by_point,
+    get_hara_features_by_ids,
+    require_hara_feature,
+)
 
 router = APIRouter(prefix="/api/v1/saved-regions", tags=["saved-regions"])
 
@@ -24,8 +28,6 @@ def create_saved_region(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ) -> SavedRegionRead:
-    ensure_saved_region_tables(db)
-
     area = find_hara_feature_by_point(db, payload.lon, payload.lat)
     if area is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No hara area found")
@@ -57,18 +59,25 @@ def list_saved_regions(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ) -> list[SavedRegionRead]:
-    ensure_saved_region_tables(db)
-
     saved_regions = db.scalars(
         select(SavedRegion)
         .where(SavedRegion.user_id == current_user.id)
         .order_by(SavedRegion.created_at.desc(), SavedRegion.id.desc())
     ).all()
 
-    return [
-        saved_region_to_read(saved_region, require_hara_feature(db, saved_region.hara_area_id))
-        for saved_region in saved_regions
-    ]
+    area_ids = list({sr.hara_area_id for sr in saved_regions})
+    features = get_hara_features_by_ids(db, area_ids, include_geometry=False)
+
+    results = []
+    for sr in saved_regions:
+        area_feat = features.get(sr.hara_area_id)
+        if area_feat is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Hara area {sr.hara_area_id} not found",
+            )
+        results.append(saved_region_to_read(sr, area_feat))
+    return results
 
 
 @router.get("/{saved_region_id}", response_model=SavedRegionRead)
