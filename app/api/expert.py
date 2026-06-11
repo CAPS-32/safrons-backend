@@ -31,7 +31,6 @@ def create_hara_advisory(
     expert_user: Annotated[User, Depends(require_expert)],
     db: Annotated[Session, Depends(get_db)],
 ) -> HaraAdvisory:
-    ensure_expert_tables(db)
     require_hara_feature(db, area_id)
 
     advisory = HaraAdvisory(
@@ -55,8 +54,6 @@ def update_hara_advisory(
     expert_user: Annotated[User, Depends(require_expert)],
     db: Annotated[Session, Depends(get_db)],
 ) -> HaraAdvisory:
-    ensure_expert_tables(db)
-
     advisory = db.get(HaraAdvisory, advisory_id)
     if advisory is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Advisory not found")
@@ -96,8 +93,6 @@ def update_hara_area(
     expert_user: Annotated[User, Depends(require_expert)],
     db: Annotated[Session, Depends(get_db)],
 ) -> HaraFeature:
-    ensure_expert_tables(db)
-
     changes = process_hara_properties(payload.model_dump(exclude_unset=True))
     if not changes:
         raise HTTPException(
@@ -135,8 +130,6 @@ def create_hara_area(
     expert_user: Annotated[User, Depends(require_expert)],
     db: Annotated[Session, Depends(get_db)],
 ) -> HaraFeature:
-    ensure_expert_tables(db)
-
     properties = process_hara_properties(payload.properties.model_dump())
     if db.get_bind().dialect.name == "sqlite":
         area = HaraArea(**properties)

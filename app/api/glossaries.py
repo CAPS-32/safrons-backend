@@ -42,9 +42,9 @@ def ensure_glossary_tables(db: Session) -> None:
 
 @router.get("", response_model=list[GlossaryRead])
 def list_glossaries(db: Annotated[Session, Depends(get_db)]) -> list[GlossaryTerm]:
-    ensure_glossary_tables(db)
     return list(
         db.scalars(
             select(GlossaryTerm).order_by(GlossaryTerm.term.asc())
         ).all()
     )
+

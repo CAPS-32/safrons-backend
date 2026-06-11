@@ -19,7 +19,6 @@ def list_users(
     _admin_user: Annotated[User, Depends(require_admin)],
     db: Annotated[Session, Depends(get_db)],
 ) -> list[User]:
-    ensure_admin_tables(db)
     return list(db.scalars(select(User).order_by(User.created_at.desc())).all())
 
 
@@ -29,8 +28,6 @@ def create_user_by_admin(
     _admin_user: Annotated[User, Depends(require_admin)],
     db: Annotated[Session, Depends(get_db)],
 ) -> User:
-    ensure_admin_tables(db)
-
     # Check if email exists
     existing = db.scalars(select(User).where(User.email == payload.email)).first()
     if existing:
@@ -59,8 +56,6 @@ def update_user_role(
     _admin_user: Annotated[User, Depends(require_admin)],
     db: Annotated[Session, Depends(get_db)],
 ) -> User:
-    ensure_admin_tables(db)
-
     user = db.get(User, user_id)
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
@@ -78,8 +73,6 @@ def update_user_status(
     _admin_user: Annotated[User, Depends(require_admin)],
     db: Annotated[Session, Depends(get_db)],
 ) -> User:
-    ensure_admin_tables(db)
-
     user = db.get(User, user_id)
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
