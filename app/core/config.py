@@ -1,6 +1,7 @@
+from typing import Any
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -13,6 +14,14 @@ class Settings(BaseSettings):
         default_factory=lambda: ["http://localhost:5173", "http://127.0.0.1:5173"]
     )
     database_url: str = "postgresql+psycopg://safrons:safrons@localhost:5432/safrons"
+
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def convert_postgres_schema(cls, v: Any) -> Any:
+        if isinstance(v, str) and v.startswith("postgresql://"):
+            return v.replace("postgresql://", "postgresql+psycopg://", 1)
+        return v
+
     jwt_secret_key: str = "change-this-local-development-secret"
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
