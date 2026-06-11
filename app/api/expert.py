@@ -77,6 +77,18 @@ def update_hara_advisory(
     return advisory
 
 
+def process_hara_properties(properties: dict[str, Any]) -> dict[str, Any]:
+    processed = properties.copy()
+    for key in ["ph_rata2", "n_rata2", "p_rata2", "k_rata2"]:
+        if key in processed:
+            val = processed[key]
+            if val is None:
+                processed[key] = -9999.0
+            elif key == "k_rata2" and val != -9999.0 and float(val) < 100.0:
+                processed[key] = float(val) * 10.0
+    return processed
+
+
 @router.patch("/hara/areas/{area_id}", response_model=HaraFeature)
 def update_hara_area(
     area_id: int,
@@ -86,7 +98,7 @@ def update_hara_area(
 ) -> HaraFeature:
     ensure_expert_tables(db)
 
-    changes = payload.model_dump(exclude_unset=True)
+    changes = process_hara_properties(payload.model_dump(exclude_unset=True))
     if not changes:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -125,7 +137,7 @@ def create_hara_area(
 ) -> HaraFeature:
     ensure_expert_tables(db)
 
-    properties = payload.properties.model_dump()
+    properties = process_hara_properties(payload.properties.model_dump())
     if db.get_bind().dialect.name == "sqlite":
         area = HaraArea(**properties)
         db.add(area)
