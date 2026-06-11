@@ -21,6 +21,8 @@ RUN pip install --no-cache-dir --upgrade pip && \
 
 # Copy the rest of the application files
 COPY app/ ./app/
+COPY database/ ./database/
+
 
 # Expose port
 EXPOSE 8000
