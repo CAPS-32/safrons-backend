@@ -1,19 +1,26 @@
-# SAFRONS Backend
+<div align="center">
+  <img src="public/safrons-logo.png" alt="SAFRONS Logo" height="100">
+
+  # SAFRONS Backend
+
+  Layanan backend API berbasis FastAPI, PostgreSQL, dan PostGIS untuk mendukung analisis kesuburan hara regional dan evaluasi kesesuaian lahan pertanian.
+
+  [![FastAPI](https://img.shields.io/badge/FastAPI-0.115.0-009688?style=flat-square&logo=fastapi)](#)
+  [![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=flat-square&logo=python)](#)
+  [![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.0.0-D11919?style=flat-square)](#)
+  [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?style=flat-square&logo=postgresql)](#)
+  [![PostGIS](https://img.shields.io/badge/PostGIS-3-002E5B?style=flat-square)](#)
+  [![JWT Auth](https://img.shields.io/badge/JWT%20Auth-Bearer-black?style=flat-square&logo=json-web-tokens)](#)
+  [![Pytest](https://img.shields.io/badge/Pytest-8.0.0-0A9EDC?style=flat-square&logo=pytest)](#)
+</div>
+
+---
 
 Backend FastAPI untuk aplikasi SAFRONS. Backend ini menangani API, autentikasi
 JWT, dan akses baca ke database PostgreSQL + PostGIS untuk data unsur hara
 wilayah Bogor. User juga bisa menyimpan region hara dari titik map yang dipilih.
 Expert dapat menambahkan advisory, memperbarui data hara, dan membuat area hara
 baru agar bisa dilihat user.
-
-## Stack
-
-- FastAPI
-- PostgreSQL + PostGIS
-- SQLAlchemy
-- Pydantic Settings
-- JWT bearer auth
-- Pytest
 
 ## Pembagian Tanggung Jawab
 
