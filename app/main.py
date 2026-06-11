@@ -43,38 +43,42 @@ def create_app() -> FastAPI:
         import sys
         if "pytest" in sys.modules:
             return
-        from app.db.session import SessionLocal
-        from sqlalchemy import text
-        import os
-        import glob
 
-        with SessionLocal() as db:
-            # Check if migrations have already been run
-            try:
-                db.execute(text("SELECT 1 FROM hara_bogor LIMIT 1"))
-            except Exception:
-                db.rollback()
-                # Run migrations
-                base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                migrations_dir = os.path.join(base_dir, "database", "migrations")
-                sql_files = sorted(glob.glob(os.path.join(migrations_dir, "*.sql")))
-                for file_path in sql_files:
-                    with open(file_path, "r", encoding="utf-8") as f:
-                        sql_content = f.read()
-                        db.execute(text(sql_content))
-                        db.commit()
+        def run_db_migrations_bg():
+            from app.db.session import SessionLocal
+            from sqlalchemy import text
+            import os
+            import glob
 
-        from app.api.saved_regions import ensure_saved_region_tables
-        from app.api.expert import ensure_expert_tables
-        from app.api.admin import ensure_admin_tables
-        from app.api.glossaries import ensure_glossary_tables
+            with SessionLocal() as db:
+                # Check if migrations have already been run
+                try:
+                    db.execute(text("SELECT 1 FROM hara_bogor LIMIT 1"))
+                except Exception:
+                    db.rollback()
+                    # Run migrations
+                    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                    migrations_dir = os.path.join(base_dir, "database", "migrations")
+                    sql_files = sorted(glob.glob(os.path.join(migrations_dir, "*.sql")))
+                    for file_path in sql_files:
+                        with open(file_path, "r", encoding="utf-8") as f:
+                            sql_content = f.read()
+                            db.execute(text(sql_content))
+                            db.commit()
 
-        with SessionLocal() as db:
-            ensure_saved_region_tables(db)
-            ensure_expert_tables(db)
-            ensure_admin_tables(db)
-            ensure_glossary_tables(db)
+            from app.api.saved_regions import ensure_saved_region_tables
+            from app.api.expert import ensure_expert_tables
+            from app.api.admin import ensure_admin_tables
+            from app.api.glossaries import ensure_glossary_tables
 
+            with SessionLocal() as db:
+                ensure_saved_region_tables(db)
+                ensure_expert_tables(db)
+                ensure_admin_tables(db)
+                ensure_glossary_tables(db)
+
+        import threading
+        threading.Thread(target=run_db_migrations_bg, daemon=True).start()
 
     return app
 
