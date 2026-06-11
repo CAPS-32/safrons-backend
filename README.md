@@ -406,3 +406,165 @@ WHERE ST_Contains(geom, ST_SetSRID(ST_MakePoint(106.8, -6.6), 4326));
 ## CARA LAIN - Setup Database Native (tanpa Docker)
 
 Detail setup database native ada di [database/README.md](database/README.md).
+
+---
+
+## Panduan Deployment
+
+### 1. Deployment ke Railway (Paling Direkomendasikan)
+
+Railway mendukung deployment berbasis Dockerfile secara otomatis. Backend SAFRONS sudah dilengkapi dengan `Dockerfile` di root folder yang otomatis dideteksi oleh Railway untuk mem-build Docker image dan menjalankannya.
+
+#### Langkah-langkah:
+1. **Buat Database PostgreSQL dengan PostGIS di Railway**:
+   - Jangan gunakan tombol bawaan \"Provision PostgreSQL\" karena database PostgreSQL standar di Railway tidak menyertakan modul PostGIS secara default. Jika database PostgreSQL bawaan sudah otomatis terbuat, silakan **hapus database bawaan** tersebut agar tidak membingungkan.
+   - Klik **New** -> **Docker Image** -> Masukkan name image: `postgis/postgis:16-3.4` (atau versi postgis stabil lainnya).
+   - Masuk ke tab **Variables** pada service database PostGIS baru tersebut dan tambahkan variabel environment database dasar (seperti `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, dan `PORT` jika diperlukan).
+
+2. **Deploy Backend**:
+   - Klik **New** -> **GitHub Repo** -> Pilih repositori `safrons-backend` Anda.
+   - Railway akan otomatis mendeteksi `Dockerfile` di root folder untuk mem-build Docker image backend dan menjalankan container-nya.
+
+3. **Konfigurasi Environment Variables di Service Backend**:
+   Masuk ke service backend di Railway, buka tab **Variables**, lalu tambahkan variabel berikut:
+   - `DATABASE_URL`: Isi dengan URL koneksi ke database PostGIS yang Anda buat di atas, contoh: `postgresql://<user>:<password>@<host>:<port>/<database>` (atau gunakan reference variable bawaan Railway).
+   - `APP_ENV`: `production` atau `staging`
+   - `BACKEND_CORS_ORIGINS`: `["https://<domain-frontend-anda>", "http://localhost:5173"]` (Sesuaikan dengan domain frontend Anda)
+   - `JWT_SECRET_KEY`: *(Generate string random yang panjang dan aman)*
+   - `JWT_ALGORITHM`: `HS256`
+   - `ACCESS_TOKEN_EXPIRE_MINUTES`: `60` (atau sesuai kebutuhan)
+   - `PORT`: `8000` *(Backend kami menggunakan `${PORT:-8000}` untuk mendeteksi port dinamis dari Railway)*
+
+4. **Verifikasi**:
+   - Setelah deployment selesai, buka domain publik yang disediakan oleh Railway untuk service backend.
+   - Akses endpoint health check pada domain tersebut: `/health` (misalnya `https://<domain-backend-anda>/health`).
+   - Migrasi database dan seeding data hara sebanyak 191 poligon akan berjalan secara otomatis di background saat aplikasi pertama kali dijalankan.
+
+---
+
+### 2. Deployment ke VPS (Ubuntu/Debian)
+
+Deployment di VPS menggunakan FastAPI (Uvicorn), systemd untuk service manager, PostgreSQL + PostGIS native, dan Nginx sebagai reverse proxy dengan SSL dari Certbot.
+
+#### Langkah 1: Install Dependencies System
+Masuk ke VPS via SSH, lalu install package yang diperlukan:
+```bash
+sudo apt update && sudo apt upgrade -y
+sudo apt install -y python3-pip python3-venv git nginx curl
+
+# Install PostgreSQL 16 & PostGIS 3
+sudo apt install -y postgresql-16 postgresql-16-postgis-3
+```
+
+#### Langkah 2: Setup Database PostgreSQL & PostGIS
+1. Masuk ke prompt PostgreSQL:
+   ```bash
+   sudo -i -u postgres psql
+   ```
+2. Buat database dan user baru:
+   ```sql
+   CREATE DATABASE safrons;
+   CREATE USER safrons WITH PASSWORD 'safrons_secure_password';
+   GRANT ALL PRIVILEGES ON DATABASE safrons TO safrons;
+   \c safrons
+   CREATE EXTENSION IF NOT EXISTS postgis;
+   GRANT ALL ON SCHEMA public TO safrons;
+   \q
+   ```
+
+#### Langkah 3: Clone Repository & Setup Virtual Environment
+1. Clone repositori ke `/var/www/safrons-backend`:
+   ```bash
+   sudo mkdir -p /var/www/safrons-backend
+   sudo chown -R $USER:$USER /var/www/safrons-backend
+   git clone <URL_REPO_ANDA> /var/www/safrons-backend
+   cd /var/www/safrons-backend
+   ```
+2. Buat virtual environment & install app:
+   ```bash
+   python3 -m venv .venv
+   source .venv/bin/activate
+   pip install --upgrade pip
+   pip install -e .
+   ```
+3. Buat file `.env` di `/var/www/safrons-backend/.env`:
+   ```env
+   APP_NAME="SAFRONS API"
+   APP_ENV="production"
+   DEBUG=False
+   DATABASE_URL="postgresql://safrons:safrons_secure_password@localhost:5432/safrons"
+   BACKEND_CORS_ORIGINS=["https://domain-frontend.com"]
+   JWT_SECRET_KEY="generate-secret-key-yang-sangat-aman-di-sini"
+   JWT_ALGORITHM="HS256"
+   ACCESS_TOKEN_EXPIRE_MINUTES=60
+   ```
+
+#### Langkah 4: Setup Systemd Service
+Buat file service systemd agar FastAPI berjalan di background dan otomatis restart saat VPS reboot.
+1. Buat file konfigurasi service:
+   ```bash
+   sudo nano /etc/systemd/system/safrons-backend.service
+   ```
+2. Masukkan konfigurasi berikut:
+   ```ini
+   [Unit]
+   Description=SAFRONS Backend FastAPI Service
+   After=network.target postgresql.service
+
+   [Service]
+   User=ubuntu
+   WorkingDirectory=/var/www/safrons-backend
+   EnvironmentFile=/var/www/safrons-backend/.env
+   ExecStart=/var/www/safrons-backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+   Restart=always
+
+   [Install]
+   WantedBy=multi-user.target
+   ```
+   *(Sesuaikan `User=ubuntu` dengan username VPS Anda).*
+3. Reload systemd, jalankan, dan aktifkan service:
+   ```bash
+   sudo systemctl daemon-reload
+   sudo systemctl start safrons-backend
+   sudo systemctl enable safrons-backend
+   ```
+4. Cek status service:
+   ```bash
+   sudo systemctl status safrons-backend
+   ```
+
+#### Langkah 5: Setup Nginx & SSL (Certbot)
+1. Buat file konfigurasi server block Nginx baru:
+   ```bash
+   sudo nano /etc/nginx/sites-available/safrons-backend
+   ```
+2. Tambahkan konfigurasi reverse proxy:
+   ```nginx
+   server {
+       listen 80;
+       server_name api.domain-anda.com; # Ganti dengan domain/subdomain Anda
+
+       location / {
+           proxy_pass http://127.0.0.1:8000;
+           proxy_set_header Host $host;
+           proxy_set_header X-Real-IP $remote_addr;
+           proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+           proxy_set_header X-Forwarded-Proto $scheme;
+       }
+   }
+   ```
+3. Aktifkan konfigurasi dan restart Nginx:
+   ```bash
+   sudo ln -s /etc/nginx/sites-available/safrons-backend /etc/nginx/sites-enabled/
+   sudo nginx -t
+   sudo systemctl restart nginx
+   ```
+4. Install SSL gratis menggunakan Certbot:
+   ```bash
+   sudo apt install -y certbot python3-certbot-nginx
+   sudo certbot --nginx -d api.domain-anda.com
+   ```
+   Ikuti petunjuk untuk menyelesaikan setup SSL HTTPS.
+
+5. Selesai! Backend Anda sekarang berjalan aman menggunakan HTTPS di VPS.
+
