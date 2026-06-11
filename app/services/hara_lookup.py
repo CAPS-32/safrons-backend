@@ -18,7 +18,7 @@ HARA_COLUMNS = """
     k_rata2,
     slope__,
     texture_of,
-    ST_AsGeoJSON(geom)::json AS geometry
+    ST_AsGeoJSON(ST_SimplifyPreserveTopology(geom, 0.0001))::json AS geometry
 """
 
 

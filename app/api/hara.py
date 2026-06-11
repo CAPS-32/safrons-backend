@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import select
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -27,7 +27,11 @@ router = APIRouter(prefix="/api/v1/hara", tags=["hara"])
 
 
 @router.get("/areas", response_model=HaraFeatureCollection)
-def list_hara_areas(db: Annotated[Session, Depends(get_db)]) -> HaraFeatureCollection:
+def list_hara_areas(
+    response: Response,
+    db: Annotated[Session, Depends(get_db)],
+) -> HaraFeatureCollection:
+    response.headers["Cache-Control"] = "public, max-age=86400"
     rows = db.execute(
         text(
             f"""
