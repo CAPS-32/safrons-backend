@@ -14,12 +14,10 @@ def get_macro_analytics(
     expert_user: Annotated[User, Depends(require_expert)],
     db: Annotated[Session, Depends(get_db)],
 ) -> MacroAnalyticsRead:
-    # Query all areas from hara_bogor
     rows = db.execute(
         text("SELECT id, name, ph_rata2, n_rata2, p_rata2, k_rata2 FROM hara_bogor")
     ).mappings().all()
 
-    # Default values for empty states
     if not rows:
         return MacroAnalyticsRead(
             averages=Averages(ph=0.0, n=0.0, p=0.0, k=0.0),
@@ -34,13 +32,11 @@ def get_macro_analytics(
             critical_areas=[]
         )
 
-    # Process metrics
     ph_list = []
     n_list = []
     p_list = []
     k_list = []
     
-    # Ph distribution counts
     sangat_masam = 0
     masam = 0
     sedikit_masam = 0
@@ -51,22 +47,18 @@ def get_macro_analytics(
     valid_areas = []
 
     for r in rows:
-        # Extract values
         ph = float(r["ph_rata2"]) if r["ph_rata2"] is not None else None
         n = float(r["n_rata2"]) if r["n_rata2"] is not None else None
         p = float(r["p_rata2"]) if r["p_rata2"] is not None else None
         k = float(r["k_rata2"]) if r["k_rata2"] is not None else None
 
-        # Filter out sentinel -9999
         if ph == -9999.0: ph = None
         if n == -9999.0: n = None
         if p == -9999.0: p = None
         if k == -9999.0: k = None
 
-        # Add to lists for averages
         if ph is not None:
             ph_list.append(ph)
-            # Acidity classification
             if ph < 4.5:
                 sangat_masam += 1
             elif ph <= 5.5:
@@ -84,9 +76,7 @@ def get_macro_analytics(
         if p is not None: p_list.append(p)
         if k is not None: k_list.append(k)
 
-        # Critical Area calculation
         if n is not None or p is not None:
-            # We want to identify the most deficient element (N or P)
             vals = []
             if n is not None:
                 vals.append((n, "N"))
@@ -94,13 +84,10 @@ def get_macro_analytics(
                 vals.append((p, "P"))
             
             if vals:
-                # Find the parameter with the lowest value
                 min_val, min_param = min(vals, key=lambda x: x[0])
                 name = r["name"] or f"Area #{r['id']}"
                 
-                # Filter out non-soil classification names
                 if name.lower() not in ("water", "no data", "no_data"):
-                    # Normalize "Puting" to "Seri Puting" and prefix others with "Seri "
                     if name.lower() == "puting":
                         name = "Seri Puting"
                     elif not name.startswith("Seri ") and not name.startswith("Asosiasi "):
@@ -113,22 +100,17 @@ def get_macro_analytics(
                         "parameter": min_param
                     })
 
-    # Calculate averages (defaulting to 0.0 if empty lists)
     avg_ph = sum(ph_list) / len(ph_list) if ph_list else 0.0
     avg_n = sum(n_list) / len(n_list) if n_list else 0.0
     avg_p = sum(p_list) / len(p_list) if p_list else 0.0
-    
-    # Kalium (K) is stored scaled by 10, so divide by 10 for displayed average
     avg_k = (sum(k_list) / len(k_list) / 10.0) if k_list else 0.0
 
-    # Group and deduplicate critical areas by name (keeping the most deficient value)
     unique_areas = {}
     for area in valid_areas:
         name = area["name"]
         if name not in unique_areas or area["value"] < unique_areas[name]["value"]:
             unique_areas[name] = area
 
-    # Sort valid areas to find the top 5 with the lowest values
     critical_areas_data = sorted(unique_areas.values(), key=lambda x: x["value"])[:5]
     critical_areas = [
         CriticalArea(
