@@ -8,7 +8,7 @@ from app.db.session import get_db
 from app.models.glossary import GlossaryTerm
 from app.models.user import User
 from app.schemas.glossary import GlossaryCreate, GlossaryUpdate, GlossaryRead
-from app.api.v1.glossaries import ensure_glossary_tables
+from app.api.glossaries import ensure_glossary_tables
 
 router = APIRouter(prefix="/api/v1/expert/glossaries", tags=["expert_glossaries"])
 
