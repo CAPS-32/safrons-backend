@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     app_env: str = "local"
     debug: bool = True
     api_v1_prefix: str = "/api/v1"
-    backend_cors_origins: list[str] = Field(
+    backend_cors_origins: Any = Field(
         default_factory=lambda: ["http://localhost:5173", "http://127.0.0.1:5173"]
     )
     database_url: str = "postgresql+psycopg://safrons:safrons@localhost:5432/safrons"
