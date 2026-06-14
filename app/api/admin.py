@@ -2,14 +2,17 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.api.deps import require_admin
 from app.core.security import hash_password
 from app.db.base import Base
 from app.db.session import get_db
 from app.models.user import User
+from app.models.hara_area_change import HaraAreaChange
 from app.schemas.auth import UserRead, UserRoleUpdate, UserCreateAdmin, UserStatusUpdate
+from app.schemas.hara import HaraAreaChangeRead
+
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
 
@@ -88,6 +91,19 @@ def update_user_status(
     db.commit()
     db.refresh(user)
     return user
+
+
+@router.get("/audit-logs", response_model=list[HaraAreaChangeRead])
+def list_audit_logs(
+    _admin_user: Annotated[User, Depends(require_admin)],
+    db: Annotated[Session, Depends(get_db)],
+) -> list[HaraAreaChange]:
+    stmt = (
+        select(HaraAreaChange)
+        .options(joinedload(HaraAreaChange.user), joinedload(HaraAreaChange.area))
+        .order_by(HaraAreaChange.created_at.desc())
+    )
+    return list(db.scalars(stmt).all())
 
 
 def ensure_admin_tables(db: Session) -> None:

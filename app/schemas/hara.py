@@ -1,6 +1,8 @@
+from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from app.schemas.auth import UserRead
 
 
 class HaraProperties(BaseModel):
@@ -63,3 +65,28 @@ class HaraAreaCreate(BaseModel):
         if not isinstance(coordinates, list) or not coordinates:
             raise ValueError("geometry coordinates are required")
         return value
+
+
+class HaraAreaChangeRead(BaseModel):
+    id: int
+    hara_area_id: int
+    user_id: int
+    action: str
+    changed_fields: dict[str, Any]
+    created_at: datetime
+    user: UserRead
+    area_name: str | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+    @model_validator(mode="before")
+    @classmethod
+    def resolve_area_name(cls, data: Any) -> Any:
+        if hasattr(data, "area") and data.area:
+            setattr(data, "area_name", data.area.name)
+        elif isinstance(data, dict):
+            area = data.get("area")
+            if area:
+                data["area_name"] = area.name if hasattr(area, "name") else area.get("name")
+        return data
+

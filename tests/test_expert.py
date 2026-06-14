@@ -219,3 +219,29 @@ def test_expert_can_create_hara_area(
 
     assert response.status_code == 201
     assert response.json()["properties"]["name"] == "Area Baru"
+
+
+def test_admin_can_access_audit_logs(
+    client_with_db: tuple[TestClient, Callable[[], Session]],
+) -> None:
+    client, session_local = client_with_db
+    expert_headers = auth_headers(client, "expert@example.com", "expert")
+    client.patch(
+        "/api/v1/expert/hara/areas/1",
+        json={"ph_rata2": 6.3},
+        headers=expert_headers,
+    )
+
+    admin_headers = auth_headers(client, "admin@example.com", "admin")
+    response = client.get("/api/v1/admin/audit-logs", headers=admin_headers)
+    assert response.status_code == 200
+    logs = response.json()
+    assert len(logs) >= 1
+    assert logs[0]["action"] == "update"
+    assert logs[0]["changed_fields"]["ph_rata2"] == 6.3
+    assert logs[0]["user"]["email"] == "expert@example.com"
+    assert logs[0]["area_name"] == "Air Hitam Kanan"
+
+    response_expert = client.get("/api/v1/admin/audit-logs", headers=expert_headers)
+    assert response_expert.status_code == 403
+
